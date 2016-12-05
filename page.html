@@ -1,0 +1,210 @@
+<html>
+    <head>
+        <style>
+            #board{}
+            #board .box{
+                font-size:10px;
+                display:inline-block;
+                width:35px;
+                height:35px;
+                border:1px solid black;
+                margin:0;
+                cursor:pointer;
+                background:grey;
+                font-weight:bold;
+                text-align:center;
+                box-shadow:1px 1px #000
+            }
+            #board .box span{visibility:hidden}
+            #board .box.revealed span{visibility:visible}
+            #board .box.flagged span{border:1px solid red}
+            #board .box span.hint0{color:transparent}
+            #board .box span.hint1,#board .box span.hint5{color:purple}
+            #board .box span.hint2,#board .box span.hint6{color:green}
+            #board .box span.hint3,#board .box span.hint7{color:blue}
+            #board .box span.hint4,#board .box span.hint8{color:red}
+            #board .row{display:block}
+        </style>
+    </head>
+    <body>
+        <div id="board"></div>
+        <!-- <script>
+            (function(){
+                Cell = function(row, col, value, box) {
+                    var _value = value;
+                    var _box = box;
+                    var _revealed = false;
+
+                    // reveal this cell
+                    var _reveal = function(){
+                        _revealed = true;
+                        _box.className += " revealed";
+                    };
+
+                    // flag this cell as a mine
+                    var _flag = function(){
+                        _box.className += " flagged"
+                    };
+
+                    return {
+                        reveal: function(){ return _reveal() },
+                        flag: function(){ return _flag() },
+                        isHint: function(){ return _value > 0 },
+                        isMine: function(){ return _value === -1 },
+                        isEmpty: function(){ return _value === 0 },
+                        isRevealed: function(){ return _revealed },
+                        value:function(val){
+                            if (!isNaN(val)) {
+                                _value = val
+                            }
+
+                            return _value
+                        },
+                        x: row,
+                        y: col
+                    }
+                };
+
+                Board = function(n, elem) {
+                    var _n = n;
+                    var _board = elem;
+                    var _boardData = [];
+
+                    // draw a NxN board
+                    var _draw = function(){
+                        for (var i = 1; i <= _n; i++) {
+                            var row = document.createElement("div");
+                            row.id = i;
+                            for (var j = 1; j <= _n; j++) {
+                                var box = document.createElement("div");
+                                var cell = _boardData[i][j];
+                                box.className = "box";
+                                if ( cell.isMine() ) {
+                                    box.className += " mine";
+                                    box.innerHTML = "<span>*</span>"
+                                } else {
+                                    box.className += " hint hint" + cell.value();
+                                    box.innerHTML = "<span>" + _boardData[i][j].value() + "</span>";
+                                }
+                                box.onclick = function boxClicked(row, col) {
+                                    var box = _boardData[row][col];
+                                    if (box.isMine()) {
+                                        _stop("Boom! You lose (a leg).");
+                                    } else {
+                                        _startRevealingFrom(box);
+                                    }
+                                }.bind(box, i, j);
+
+                                // add new box to row (UI)
+                                row.appendChild(box);
+                            }
+
+                            // add new row to the board
+                            board.appendChild(row);
+                        }
+                    };
+
+                    // reveal any redundant cells on the board starting from 'box'
+                    var _startRevealingFrom = function(box) {
+                        box.reveal();
+                        var nonMines = _neighborsWhere(box, function(cell){
+                            return !cell.isMine() && !cell.isRevealed()
+                        });
+                        for (var i = 0; i < nonMines.length; i++) {
+                            _startRevealingFrom(nonMines[i]);
+                        }
+                    };
+
+                    // set _n mines
+                    var _setMines = function(){
+                        var mines = _n;
+                        while (mines > 0) {
+                            var row = Math.floor((Math.random() * 1000) + 1) % _n;
+                            var col = Math.floor((Math.random() * 1000) + 1) % _n;
+                            try{
+                                if ( row > 0 && col > 0 && _boardData[row][col] && _boardData[row][col].value() != -1 ) {
+                                    _boardData[row][col].value(-1);
+                                    mines--
+                                }
+                            } catch(e) {
+                                alert("(" + row + "," + col + "): " + e)
+                            }
+                        }
+                    };
+
+                    // get all neighbors by filter
+                    var _neighborsWhere = function(box, filterFunc) {
+                        var locs = [
+                            {x: box.x-1, y: box.y-1},
+                            {x: box.x-1, y: box.y},
+                            {x: box.x-1, y: box.y+1},
+                            {x: box.x,   y: box.y+1},
+                            {x: box.x,   y: box.y-1},
+                            {x: box.x+1, y: box.y-1},
+                            {x: box.x+1, y: box.y},
+                            {x: box.x+1, y: box.y+1}
+                        ].filter(function(loc){
+                            return loc.x >= 1 && loc.x <= _n && loc.y >= 1 && loc.y <= _n && filterFunc(_boardData[loc.x][loc.y])
+                        });
+                        var neighbors = [];
+                        while(loc = locs.pop())
+                            neighbors.push(_boardData[loc.x][loc.y])
+                        return neighbors
+                    };
+
+                    // set all numbers that hint on where mines are
+                    var _setHints = function(){
+                        for (var x = 1; x <= _n; x++) {
+                            for (var y = 1; y <= _n; y++) {
+                                var box = _boardData[x][y];
+                                if (!box.isMine()) {
+                                    box.value(_neighborsWhere(box, function(cell){
+                                        return cell.isMine()
+                                    }).length)
+                                }
+                            }
+                        }
+                    };
+
+                    // reveal all of the board's cells
+                    var _reveal = function(){
+                        for (var i = _boardData.length - 1; i >= 0; i--) {
+                            _boardData[i].reveal();
+                        }
+                    };
+
+                    // start a new game
+                    var _start = function(){
+                        for (var i = 1; i <= _n; i++) {
+                            _boardData[i] = new Array(_n);
+                            for (var j = 1; j <= _n; j++) {
+                                _boardData[i][j] = new Cell(i, j, 0, undefined);
+                            }
+                        }
+
+                        _setMines();
+                        _setHints();
+                        _draw();
+                    };
+
+                    // clear this game
+                    var _stop = function(result){
+                        _reveal();
+                        alert(result);
+                    };
+
+                    return {
+                        start:function(){ return _start() },
+                        stop:function(result){ return _stop(result) }
+                    }
+                };
+
+                var init = (function(){
+                    var board = new Board(prompt("Size?", "9"), document.getElementById("board"));
+                    board.start();
+                }());
+            })();
+        </script> -->
+        <script type="text/javascript" src="page.js"></script>
+    </body>
+</html>
